@@ -1,45 +1,39 @@
 package com.example.testcaseapplication
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.*
 import android.util.AttributeSet
-import android.util.Log
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import java.util.*
+import android.widget.TextView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.cos
-import kotlin.random.Random
 
-class Game21View @JvmOverloads constructor(context: Context, attributeSet: AttributeSet? = null, defStyleAttr:Int = 0): SurfaceView(context,attributeSet,defStyleAttr), SurfaceHolder.Callback {
-
-    private val mPaint = Paint()
-    val myCards = Stack<Card>()
-    private val cardsOnTable: MutableList<Card> = mutableListOf<Card>().apply {
-        for (suit in Suit.values()) {
-            for (rank in Rank.values()) {
-                add(Card(suit, rank))
-            }
-        }
+class Game21View @JvmOverloads constructor(
+    context: Context,
+    attributeSet: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : SurfaceView(context, attributeSet, defStyleAttr), SurfaceHolder.Callback {
+    companion object {
+        const val TIME_BETWEEN_DRAWING = 10
+        const val KOEF_SPEED_TRANSLATING_CARD = 0.0004 // пикселей в секунду
     }
-    var count = 0
-    val TIME_BETWEEN_DRAWING = 10
-    val KOEF_SPEED_TRANSLATING_CARD = 0.0004 // пикселей в секунду
-    var mPrevDrawTime  = 0L
+    lateinit var game21: Game21
+    lateinit var thread: Thread
+    var canvas: Canvas? = null
+    val mPaint = Paint()
+    var textViewCounter: TextView? = null
+    var mPrevDrawTime = 0L
     var mStartTime = 0L
-    var cardlocationX = width / 2
-    var cardlocationY = height / 2
-    var flagRunning: Boolean = true
-    val tableForGame by lazy {
-        Bitmap.createScaledBitmap(
-            BitmapFactory.decodeStream(context.assets.open("tablegame.jpg")),width,height,true)
-    }
     val cardWidth = 200
     val cardHeight = 300
-    val cardBackSide = BitmapFactory.decodeResource(resources, R.drawable.card_back_side).run {
-        Bitmap.createScaledBitmap(this, cardWidth, cardHeight, true)
-    }
+    var cardlocationX = width / 2
+    var cardlocationY = height / 2
     val leftLimitTouchToTakeCard by lazy {
         width / 2 - cardBackSide.width / 2
     }
@@ -52,6 +46,15 @@ class Game21View @JvmOverloads constructor(context: Context, attributeSet: Attri
     val bottomLimitTouchToTakeCard by lazy {
         height / 2 + cardBackSide.height / 2
     }
+    var flagRunning: Boolean = false
+    val tableForGame by lazy {
+        Bitmap.createScaledBitmap(
+            BitmapFactory.decodeStream(context.assets.open("tablegame.jpg")), width, height, true
+        )
+    }
+    val cardBackSide = BitmapFactory.decodeResource(resources, R.drawable.card_back_side).run {
+        Bitmap.createScaledBitmap(this, cardWidth, cardHeight, true)
+    }
     var isTakeCard = false
     var isFlipCard = false
     var rotateFlipping = 0f
@@ -59,39 +62,48 @@ class Game21View @JvmOverloads constructor(context: Context, attributeSet: Attri
     init {
         holder.addCallback(this)
     }
+
     override fun surfaceCreated(holder: SurfaceHolder) {
-        Thread {
+        textViewCounter?.text = "0"
+        game21 = Game21()
+        flagRunning = true
+        thread = Thread {
             mPrevDrawTime = getTime()
             while (flagRunning) {
-                val canvas = holder.lockCanvas()
+                canvas = holder.lockCanvas()
                 val currentTime = getTime()
                 try {
-                    drawTableForGame(canvas)
-                    if (currentTime - mPrevDrawTime < TIME_BETWEEN_DRAWING) {
-                        continue
-                    }
-                    if (isTakeCard) {
-                        drawTakingCard(canvas)
-                    }
-                    if( isFlipCard){
-                        rotateFlipping+= ((Math.PI)/1000*15).toFloat()
-                        drawFlippingCard(canvas,(rotateFlipping))
+                    canvas?.let {
+                        drawTableForGame(it)
+                        if (currentTime - mPrevDrawTime < TIME_BETWEEN_DRAWING) {
+                            return@let
+                        }
+                        if (isTakeCard) {
+                            drawTakingCard(it)
+                        }
+                        if (isFlipCard) {
+                            rotateFlipping += ((Math.PI) / 1000 * 15).toFloat()
+                            drawFlippingCard(it, (rotateFlipping))
+                        }
                     }
                 } catch (e: IllegalMonitorStateException) {
                     e.printStackTrace()
                 } finally {
-                    holder.unlockCanvasAndPost(canvas)
+                    if (canvas != null)
+                        holder.unlockCanvasAndPost(canvas)
                 }
                 mPrevDrawTime = currentTime
             }
-        }.start()
+        }
+        thread.start()
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
-        Log.e("MainActivity", "surfaceDestroyed")
+        flagRunning = false
+        thread.join()
     }
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {
@@ -99,65 +111,48 @@ class Game21View @JvmOverloads constructor(context: Context, attributeSet: Attri
         val touchY = event?.y?.toInt()
 
         if (event?.action == MotionEvent.ACTION_DOWN && touchX in (leftLimitTouchToTakeCard..rightLimitTouchToTakeCard) && touchY in (bottomLimitTouchToTakeCard downTo topLimitTouchToTakeCard)
-            && cardsOnTable.isNotEmpty()
+            && game21.cardsOnTable.isNotEmpty()
         ) {
-            takeCard()
+            game21.takeCard(::onFinish)
             mStartTime = getTime()
             isTakeCard = true
         }
-        if (event?.action == MotionEvent.ACTION_DOWN && touchX in (leftLimitTouchToTakeCard..rightLimitTouchToTakeCard) && touchY in (height- cardBackSide.height..height) &&
-            myCards.isNotEmpty()
-        ) {
-            isFlipCard = true
-        }
         return super.onTouchEvent(event)
     }
+
     fun getTime(): Long {
         return System.nanoTime() / 1_000_000
     }
 
-    fun takeCard() {
-        if (cardsOnTable.isNotEmpty())
-            myCards.push(
-                cardsOnTable.run {
-                    removeAt(Random.nextInt(size - 1))
-                }
-            )
+    fun onFinish(isWin: Boolean) {
+        context.startActivity(Intent(context, ResultGameActivity::class.java).apply {
+            putExtra("isWin", isWin)
+        })
     }
-
     fun drawTakingCard(canvas: Canvas) {
-        val curTime = getTime() - mStartTime
+        val timeFromStart = getTime() - mStartTime
         canvas.drawBitmap(cardBackSide, Matrix().apply {
             setTranslate(
                 width / 2f - (cardBackSide.width).toFloat() / 2f,
                 height / 2f - (cardBackSide.height).toFloat() / 2f
             )
             postTranslate(
-                0f, (curTime * height * KOEF_SPEED_TRANSLATING_CARD).toFloat()
+                0f, (timeFromStart * height * KOEF_SPEED_TRANSLATING_CARD).toFloat()
             )
         }, mPaint)
-        cardlocationY = height / 2 + (curTime * height * KOEF_SPEED_TRANSLATING_CARD).toInt()
-        if (cardlocationY >= height - (cardBackSide.height).toFloat() / 2f) {
+        cardlocationY = height / 2 + (timeFromStart * height * KOEF_SPEED_TRANSLATING_CARD).toInt()
+        if (cardlocationY >= height - (cardBackSide.height).toFloat() / 2f - 160) {
             isTakeCard = false
-            if (myCards.isNotEmpty()) {
-                canvas.drawBitmap(cardBackSide, Matrix().apply {
-                    setTranslate(
-                        width / 2f - (cardBackSide.width).toFloat() / 2f,
-                        height - (cardBackSide.height).toFloat()
-                    )
-
-                }, mPaint)
-            }
+            isFlipCard = true
         }
     }
-
     fun drawTableForGame(canvas: Canvas) {
         canvas.drawBitmap(
             tableForGame,
             Matrix(),
             mPaint
         )
-        if (cardsOnTable.isNotEmpty()) {
+        if (game21.cardsOnTable.isNotEmpty()) {
             canvas.drawBitmap(cardBackSide, Matrix().apply {
                 setTranslate(
                     width / 2f - (cardBackSide.width).toFloat() / 2f,
@@ -165,12 +160,12 @@ class Game21View @JvmOverloads constructor(context: Context, attributeSet: Attri
                 )
             }, mPaint)
         }
-        if (myCards.isNotEmpty()) {
-            if (!isTakeCard || myCards.size != 1)
+        if (game21.myCards.isNotEmpty()) {
+            if (!isTakeCard || game21.myCards.size != 1)
                 canvas.drawBitmap(cardBackSide, Matrix().apply {
                     setTranslate(
                         width / 2f - (cardBackSide.width).toFloat() / 2f,
-                        height - (cardBackSide.height).toFloat()
+                        height - (cardBackSide.height).toFloat() - 160
                     )
 
                 }, mPaint)
@@ -178,38 +173,58 @@ class Game21View @JvmOverloads constructor(context: Context, attributeSet: Attri
     }
 
     fun drawFlippingCard(canvas: Canvas, rotate: Float) {
-        val cardFrontSide = CardsBitmapHandling.getCardBitmap(context,myCards.peek(),cardWidth,cardHeight)
-        if( rotate >= Math.PI.toFloat()){
+        val cardFrontSide =
+            CardsBitmapHandling.getCardBitmap(context, game21.myCards.peek(), cardWidth, cardHeight)
+        if (rotate >= 2 * Math.PI.toFloat()) {
             isFlipCard = false
             rotateFlipping = 0f
-        }
-        else {
-            if(rotate<= Math.PI/2)
-                canvas.drawBitmap(cardBackSide, Matrix().apply {
-                    setTranslate(
-                        width / 2f - (cardBackSide.width).toFloat() / 2f,
-                        height - (cardBackSide.height).toFloat()
-                    )
-                    postScale(
-                        cardBackSide.height / 2f * abs((cos(rotate))) * 2 / cardBackSide.height,
-                        1f,
-                        width / 2f,
-                        height - cardBackSide.height / 2f
-                    )
-                }, mPaint)
-            else
-                canvas.drawBitmap(cardFrontSide, Matrix().apply {
-                    setTranslate(
-                        width / 2f - (cardBackSide.width).toFloat() / 2f,
-                        height - (cardBackSide.height).toFloat()
-                    )
-                    postScale(
-                        cardBackSide.height / 2f * abs((cos(rotate))) * 2 / cardBackSide.height,
-                        1f,
-                        width / 2f,
-                        height - cardBackSide.height / 2f
-                    )
-                }, mPaint)
+            CoroutineScope(Dispatchers.Main).launch {
+                textViewCounter?.text = game21.count.toString()
+            }
+        } else {
+            when {
+                (rotate in (0f..Math.PI.toFloat() / 2)) ->
+                    canvas.drawBitmap(cardBackSide, Matrix().apply {
+                        setTranslate(
+                            width / 2f - (cardBackSide.width).toFloat() / 2f,
+                            height - (cardBackSide.height).toFloat() - 160
+                        )
+                        postScale(
+                            cardBackSide.height / 2f * abs((cos(rotate))) * 2 / cardBackSide.height,
+                            1f,
+                            width / 2f,
+                            height - cardBackSide.height / 2f
+                        )
+                    }, mPaint)
+                (rotate in (Math.PI.toFloat() / 2..1.5f * Math.PI.toFloat())) ->
+                    canvas
+                        .drawBitmap(cardFrontSide, Matrix().apply {
+                            setTranslate(
+                                width / 2f - (cardBackSide.width).toFloat() / 2f,
+                                height - (cardBackSide.height).toFloat() - 160
+                            )
+                            postScale(
+                                cardBackSide.height / 2f * abs((cos(rotate))) * 2 / cardBackSide.height,
+                                1f,
+                                width / 2f,
+                                height - cardBackSide.height / 2f
+                            )
+                        }, mPaint)
+                (rotate in (1.5f * Math.PI.toFloat())..2 * Math.PI.toFloat()) ->
+                    canvas
+                        .drawBitmap(cardBackSide, Matrix().apply {
+                            setTranslate(
+                                width / 2f - (cardBackSide.width).toFloat() / 2f,
+                                height - (cardBackSide.height).toFloat() - 160
+                            )
+                            postScale(
+                                cardBackSide.height / 2f * abs((cos(rotate))) * 2 / cardBackSide.height,
+                                1f,
+                                width / 2f,
+                                height - cardBackSide.height / 2f
+                            )
+                        }, mPaint)
+            }
         }
     }
 }
