@@ -1,4 +1,4 @@
-package com.example.testcaseapplication
+package com.example.testcaseapplication.model
 
 enum class Rank {
     KING, QUEEN, ACE, JACK, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN;
@@ -6,13 +6,13 @@ enum class Rank {
     override fun toString(): String =
         when (this) {
             TWO -> "2"
-            THREE->"3"
+            THREE ->"3"
             FOUR -> "4"
-            FIVE->"5"
+            FIVE ->"5"
             SIX -> "6"
-            SEVEN->"7"
+            SEVEN ->"7"
             EIGHT -> "8"
-            NINE->"9"
+            NINE ->"9"
             TEN -> "10"
             else-> super.toString().toLowerCase()
         }

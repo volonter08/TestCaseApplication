@@ -8,6 +8,7 @@ import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.widget.TextView
+import com.example.testcaseapplication.model.Game21
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,8 +22,10 @@ class Game21View @JvmOverloads constructor(
 ) : SurfaceView(context, attributeSet, defStyleAttr), SurfaceHolder.Callback {
     companion object {
         const val TIME_BETWEEN_DRAWING = 10
-        const val KOEF_SPEED_TRANSLATING_CARD = 0.0004 // пикселей в секунду
+        const val KOEF_SPEED_TRANSLATING_CARD = 0.0004
+        const val TIME_FLIPPING = 1
     }
+
     lateinit var game21: Game21
     lateinit var thread: Thread
     var canvas: Canvas? = null
@@ -49,7 +52,10 @@ class Game21View @JvmOverloads constructor(
     var flagRunning: Boolean = false
     val tableForGame by lazy {
         Bitmap.createScaledBitmap(
-            BitmapFactory.decodeStream(context.assets.open("tablegame.jpg")), width, height, true
+            BitmapFactory.decodeStream(context.assets.open("tablegame.jpg")),
+            width,
+            height,
+            true
         )
     }
     val cardBackSide = BitmapFactory.decodeResource(resources, R.drawable.card_back_side).run {
@@ -82,6 +88,7 @@ class Game21View @JvmOverloads constructor(
                             drawTakingCard(it)
                         }
                         if (isFlipCard) {
+
                             rotateFlipping += ((Math.PI) / 1000 * 15).toFloat()
                             drawFlippingCard(it, (rotateFlipping))
                         }
@@ -111,25 +118,29 @@ class Game21View @JvmOverloads constructor(
         val touchY = event?.y?.toInt()
 
         if (event?.action == MotionEvent.ACTION_DOWN && touchX in (leftLimitTouchToTakeCard..rightLimitTouchToTakeCard) && touchY in (bottomLimitTouchToTakeCard downTo topLimitTouchToTakeCard)
-            && game21.cardsOnTable.isNotEmpty()
+            && game21.cardsOnTable.isNotEmpty() && !isTakeCard && !isFlipCard
         ) {
-            game21.takeCard(::onFinish)
-            mStartTime = getTime()
+            game21.takeCard()
             isTakeCard = true
+            mStartTime = getTime()
         }
         return super.onTouchEvent(event)
     }
 
-    fun getTime(): Long {
+    private fun getTime(): Long {
         return System.nanoTime() / 1_000_000
     }
 
-    fun onFinish(isWin: Boolean) {
-        context.startActivity(Intent(context, ResultGameActivity::class.java).apply {
-            putExtra("isWin", isWin)
-        })
+    fun onFinishGame(isWin: Boolean) {
+        if (!isTakeCard && !isFlipCard)
+            context.startActivity(Intent(context, ResultGameActivity::class.java).apply {
+                putExtra("is_win", isWin)
+                putExtra("my_count",game21.count)
+                putExtra("count_opponent",game21.countOpponent)
+            })
     }
-    fun drawTakingCard(canvas: Canvas) {
+
+    private fun drawTakingCard(canvas: Canvas) {
         val timeFromStart = getTime() - mStartTime
         canvas.drawBitmap(cardBackSide, Matrix().apply {
             setTranslate(
@@ -140,13 +151,15 @@ class Game21View @JvmOverloads constructor(
                 0f, (timeFromStart * height * KOEF_SPEED_TRANSLATING_CARD).toFloat()
             )
         }, mPaint)
-        cardlocationY = height / 2 + (timeFromStart * height * KOEF_SPEED_TRANSLATING_CARD).toInt()
+        cardlocationY =
+            height / 2 + (timeFromStart * height * KOEF_SPEED_TRANSLATING_CARD).toInt()
         if (cardlocationY >= height - (cardBackSide.height).toFloat() / 2f - 160) {
             isTakeCard = false
             isFlipCard = true
         }
     }
-    fun drawTableForGame(canvas: Canvas) {
+
+    private fun drawTableForGame(canvas: Canvas) {
         canvas.drawBitmap(
             tableForGame,
             Matrix(),
@@ -161,7 +174,7 @@ class Game21View @JvmOverloads constructor(
             }, mPaint)
         }
         if (game21.myCards.isNotEmpty()) {
-            if (!isTakeCard || game21.myCards.size != 1)
+            if ((!isTakeCard && !isFlipCard) || game21.myCards.size != 1)
                 canvas.drawBitmap(cardBackSide, Matrix().apply {
                     setTranslate(
                         width / 2f - (cardBackSide.width).toFloat() / 2f,
@@ -172,14 +185,29 @@ class Game21View @JvmOverloads constructor(
         }
     }
 
-    fun drawFlippingCard(canvas: Canvas, rotate: Float) {
+    private fun drawFlippingCard(canvas: Canvas, rotate: Float) {
         val cardFrontSide =
-            CardsBitmapHandling.getCardBitmap(context, game21.myCards.peek(), cardWidth, cardHeight)
+            CardsBitmapHandling.getCardBitmap(
+                context,
+                game21.myCards.peek(),
+                cardWidth,
+                cardHeight
+            )
         if (rotate >= 2 * Math.PI.toFloat()) {
             isFlipCard = false
             rotateFlipping = 0f
+            canvas.drawBitmap(cardBackSide, Matrix().apply {
+                setTranslate(
+                    width / 2f - (cardBackSide.width).toFloat() / 2f,
+                    height - (cardBackSide.height).toFloat() - 160
+                )
+
+            }, mPaint)
             CoroutineScope(Dispatchers.Main).launch {
                 textViewCounter?.text = game21.count.toString()
+                if (game21.count == 21) {
+                    onFinishGame(isWin = true)
+                }
             }
         } else {
             when {

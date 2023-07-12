@@ -64,10 +64,14 @@ class MainActivity : AppCompatActivity() {
         setContentView(mainActivityBinding.root)
     }
 
-    override fun onStart() {
-        super.onStart()
+    override fun onBackPressed() {
+        if(startUrl!=webView.url) {
+            if (webView.canGoBack()) {
+                webView.goBack()
+            }
+        }
     }
-    fun createUrlFile(url: String) {
+    private fun createUrlFile(url: String) {
         if (!file.exists() && url.isNotBlank()) {
             val bufferWriter = file.bufferedWriter()
             bufferWriter.write(url)
@@ -75,7 +79,7 @@ class MainActivity : AppCompatActivity() {
             bufferWriter.close()
         }
     }
-    fun setSettingRemoteConfig() {
+    private fun setSettingRemoteConfig() {
         val defaults = mapOf(
             "url" to ""
         )
@@ -86,7 +90,7 @@ class MainActivity : AppCompatActivity() {
         remoteConfig.setConfigSettingsAsync(configSettings)
     }
 
-    fun setSettingWebView() {
+    private fun setSettingWebView() {
         val cookieManager = CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
         webView.webViewClient = WebViewClient()
@@ -102,15 +106,7 @@ class MainActivity : AppCompatActivity() {
             allowContentAccess = true
         }
     }
-
-    override fun onBackPressed() {
-        if(startUrl!=webView.url) {
-            if (webView.canGoBack()) {
-                webView.goBack()
-            }
-        }
-    }
-    fun openPermissionWindow() {
+    private fun openPermissionWindow() {
         val requestPermission =
             registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
                 if (!isGranted) {
@@ -135,11 +131,11 @@ class MainActivity : AppCompatActivity() {
                             getPackageName()
                         )
                     )
-                    startActivityForResult(intent, 101)
+                    startActivity(intent, )
                 } catch (e: Exception) {
                     val intent = Intent()
                     intent.action = Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION
-                    startActivityForResult(intent, 101)
+                    startActivity(intent)
                 }
             }
         } else {
@@ -152,7 +148,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-    fun isEmulator(): Boolean {
+    private fun isEmulator(): Boolean {
         return (Build.FINGERPRINT.startsWith("generic")
                 || Build.FINGERPRINT.startsWith("unknown")
                 || Build.MODEL.contains("google_sdk")
@@ -161,7 +157,7 @@ class MainActivity : AppCompatActivity() {
                 || Build.MANUFACTURER.contains("Genymotion")) || Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith(
             "generic" )|| "google_sdk" == Build.PRODUCT
     }
-    fun hasConnection(context: Context): Boolean {
+    private fun hasConnection(context: Context): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         var wifiInfo = cm.getNetworkInfo(ConnectivityManager.TYPE_WIFI)
         if (wifiInfo != null && wifiInfo.isConnected) {

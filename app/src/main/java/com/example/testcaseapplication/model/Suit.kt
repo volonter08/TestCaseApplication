@@ -1,4 +1,4 @@
-package com.example.testcaseapplication
+package com.example.testcaseapplication.model
 
 enum class Suit {
     Diamonds, Hearts,Clubs,Spades;
