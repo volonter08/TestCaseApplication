@@ -6,4 +6,4 @@ import com.example.testcaseapplication.model.Suit
 data class Card(
     val suit: Suit,
     val rank: Rank,
-)
+):java.io.Serializable

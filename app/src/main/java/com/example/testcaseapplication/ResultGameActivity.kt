@@ -15,7 +15,7 @@ class ResultGameActivity : AppCompatActivity() {
         val countOpponent = intent.getIntExtra("count_opponent",0)
         val resultGameActivityBinding = ActivityResultGameBinding.inflate(layoutInflater)
         Glide.with(this).load(if(isWin) R.drawable.win_giphy else R.drawable.loss_giphy).into(resultGameActivityBinding.imageview)
-        resultGameActivityBinding.textview.text = getString(if(isWin) R.string.congratulation else R.string.loss)+ " Ваш счет: $myCount. Вашего соперника: $countOpponent"
+        resultGameActivityBinding.textview.text = getString(if(isWin) R.string.congratulation else R.string.loss)+ " Your points: $myCount. Opponent's points: $countOpponent"
         setContentView(resultGameActivityBinding.root)
     }
 }

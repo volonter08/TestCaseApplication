@@ -1,6 +1,6 @@
 package com.example.testcaseapplication.model
 
-enum class Rank {
+enum class Rank :java.io.Serializable{
     KING, QUEEN, ACE, JACK, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN;
 
     override fun toString(): String =

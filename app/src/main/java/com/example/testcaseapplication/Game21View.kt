@@ -52,7 +52,7 @@ class Game21View @JvmOverloads constructor(
     var flagRunning: Boolean = false
     val tableForGame by lazy {
         Bitmap.createScaledBitmap(
-            BitmapFactory.decodeStream(context.assets.open("tablegame.jpg")),
+            BitmapFactory.decodeStream(context.assets.open("cards/tableforgame.jpg")),
             width,
             height,
             true
@@ -70,8 +70,7 @@ class Game21View @JvmOverloads constructor(
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
-        textViewCounter?.text = "0"
-        game21 = Game21()
+        textViewCounter?.text = game21.count.toString()
         flagRunning = true
         thread = Thread {
             mPrevDrawTime = getTime()
@@ -89,7 +88,7 @@ class Game21View @JvmOverloads constructor(
                         }
                         if (isFlipCard) {
 
-                            rotateFlipping += ((Math.PI) / 1000 * 15).toFloat()
+                            rotateFlipping += (2*(Math.PI) / (TIME_FLIPPING*1000) *TIME_BETWEEN_DRAWING).toFloat()
                             drawFlippingCard(it, (rotateFlipping))
                         }
                     }
@@ -135,9 +134,12 @@ class Game21View @JvmOverloads constructor(
         if (!isTakeCard && !isFlipCard)
             context.startActivity(Intent(context, ResultGameActivity::class.java).apply {
                 putExtra("is_win", isWin)
-                putExtra("my_count",game21.count)
-                putExtra("count_opponent",game21.countOpponent)
+                putExtra("my_count", game21.count)
+                putExtra("count_opponent", game21.countOpponent)
             })
+        flagRunning = false
+        thread.join()
+        game21 = Game21()
     }
 
     private fun drawTakingCard(canvas: Canvas) {
@@ -153,7 +155,7 @@ class Game21View @JvmOverloads constructor(
         }, mPaint)
         cardlocationY =
             height / 2 + (timeFromStart * height * KOEF_SPEED_TRANSLATING_CARD).toInt()
-        if (cardlocationY >= height - (cardBackSide.height).toFloat() / 2f - 160) {
+        if (cardlocationY >= height - (cardBackSide.height).toFloat() / 2f - 400) {
             isTakeCard = false
             isFlipCard = true
         }
@@ -178,7 +180,7 @@ class Game21View @JvmOverloads constructor(
                 canvas.drawBitmap(cardBackSide, Matrix().apply {
                     setTranslate(
                         width / 2f - (cardBackSide.width).toFloat() / 2f,
-                        height - (cardBackSide.height).toFloat() - 160
+                        height - (cardBackSide.height).toFloat() - 400
                     )
 
                 }, mPaint)
@@ -199,7 +201,7 @@ class Game21View @JvmOverloads constructor(
             canvas.drawBitmap(cardBackSide, Matrix().apply {
                 setTranslate(
                     width / 2f - (cardBackSide.width).toFloat() / 2f,
-                    height - (cardBackSide.height).toFloat() - 160
+                    height - (cardBackSide.height).toFloat() - 400
                 )
 
             }, mPaint)
@@ -215,7 +217,7 @@ class Game21View @JvmOverloads constructor(
                     canvas.drawBitmap(cardBackSide, Matrix().apply {
                         setTranslate(
                             width / 2f - (cardBackSide.width).toFloat() / 2f,
-                            height - (cardBackSide.height).toFloat() - 160
+                            height - (cardBackSide.height).toFloat() - 400
                         )
                         postScale(
                             cardBackSide.height / 2f * abs((cos(rotate))) * 2 / cardBackSide.height,
@@ -229,7 +231,7 @@ class Game21View @JvmOverloads constructor(
                         .drawBitmap(cardFrontSide, Matrix().apply {
                             setTranslate(
                                 width / 2f - (cardBackSide.width).toFloat() / 2f,
-                                height - (cardBackSide.height).toFloat() - 160
+                                height - (cardBackSide.height).toFloat() - 400
                             )
                             postScale(
                                 cardBackSide.height / 2f * abs((cos(rotate))) * 2 / cardBackSide.height,
@@ -243,7 +245,7 @@ class Game21View @JvmOverloads constructor(
                         .drawBitmap(cardBackSide, Matrix().apply {
                             setTranslate(
                                 width / 2f - (cardBackSide.width).toFloat() / 2f,
-                                height - (cardBackSide.height).toFloat() - 160
+                                height - (cardBackSide.height).toFloat() - 400
                             )
                             postScale(
                                 cardBackSide.height / 2f * abs((cos(rotate))) * 2 / cardBackSide.height,

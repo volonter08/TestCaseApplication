@@ -4,7 +4,7 @@ import com.example.testcaseapplication.Card
 import java.util.*
 import kotlin.random.Random
 
-class Game21() {
+class Game21():java.io.Serializable{
     val myCards = Stack<Card>()
     val cardsOnTable: MutableList<Card> = mutableListOf<Card>().apply {
         for (suit in Suit.values()) {

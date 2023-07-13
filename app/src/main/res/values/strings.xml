@@ -1,5 +1,5 @@
 <resources>
     <string name="app_name">TestCaseApplication</string>
-    <string name="congratulation">Поздравляю с победой!</string>
-    <string name="loss">Проигрыш:( Не расстраивайтесь,попробуйте еще раз)</string>
+    <string name="congratulation">Congratulations on the victory!</string>
+    <string name="loss">Losing:( Do not be upset, try again </string>
 </resources>
